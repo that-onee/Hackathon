@@ -1,0 +1,784 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>AI Project Generator — Rotterdam TC Hackathon</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #f8f8f6;
+    --surface: #ffffff;
+    --border: rgba(0,0,0,0.1);
+    --border-strong: rgba(0,0,0,0.2);
+    --text: #1a1a1a;
+    --text-muted: #666;
+    --text-hint: #999;
+    --blue: #1a6fb5;
+    --blue-bg: #e8f1fb;
+    --blue-text: #0c4478;
+    --green: #1e7d4a;
+    --green-bg: #e4f4ec;
+    --green-text: #0f5230;
+    --amber: #b56a10;
+    --amber-bg: #fef3e2;
+    --amber-text: #7a4508;
+    --radius: 10px;
+    --radius-sm: 6px;
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    line-height: 1.6;
+  }
+
+  .topbar {
+    background: var(--surface);
+    border-bottom: 0.5px solid var(--border);
+    padding: 0.75rem 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .topbar-title { font-size: 14px; font-weight: 500; color: var(--text-muted); }
+  .lang-toggle { display: flex; gap: 4px; }
+  .lang-btn {
+    padding: 4px 12px; border-radius: var(--radius-sm);
+    border: 0.5px solid var(--border); font-size: 12px; font-weight: 500;
+    cursor: pointer; background: transparent; color: var(--text-muted);
+    transition: all 0.15s;
+  }
+  .lang-btn.active { background: var(--blue-bg); color: var(--blue-text); border-color: #a0c4e8; }
+
+  .app { max-width: 680px; margin: 0 auto; padding: 2rem 1rem; }
+
+  .screen { display: none; }
+  .screen.active { display: block; }
+
+  .page-title { font-size: 22px; font-weight: 600; margin-bottom: 4px; }
+  .page-sub { font-size: 14px; color: var(--text-muted); margin-bottom: 1.5rem; }
+
+  .card {
+    background: var(--surface);
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.25rem;
+    margin-bottom: 1rem;
+  }
+
+  .section-label {
+    font-size: 11px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.07em; color: var(--text-muted); margin-bottom: 10px;
+  }
+
+  label { font-size: 13px; color: var(--text-muted); display: block; margin-bottom: 6px; }
+
+  select, input[type="text"] {
+    width: 100%; padding: 8px 10px; border: 0.5px solid var(--border-strong);
+    border-radius: var(--radius-sm); font-size: 14px; background: var(--surface);
+    color: var(--text); outline: none; transition: border-color 0.15s;
+    font-family: inherit;
+  }
+  select:focus, input[type="text"]:focus { border-color: var(--blue); }
+
+  .tag-grid { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; }
+  .tag {
+    padding: 5px 12px; border-radius: 20px; border: 0.5px solid var(--border-strong);
+    font-size: 13px; cursor: pointer; transition: all 0.15s; background: var(--surface);
+    user-select: none;
+  }
+  .tag:hover { border-color: var(--blue); color: var(--blue); }
+  .tag.selected { background: var(--blue-bg); border-color: #a0c4e8; color: var(--blue-text); font-weight: 500; }
+
+  .custom-row { display: flex; gap: 8px; margin-top: 10px; }
+  .custom-row input { flex: 1; }
+
+  .btn {
+    display: inline-flex; align-items: center; gap: 6px; padding: 9px 18px;
+    border-radius: var(--radius-sm); font-size: 14px; font-weight: 500;
+    cursor: pointer; border: 0.5px solid var(--border-strong);
+    background: var(--surface); color: var(--text); transition: all 0.15s;
+    font-family: inherit;
+  }
+  .btn:hover { background: var(--bg); }
+  .btn:active { transform: scale(0.98); }
+  .btn-primary { background: var(--text); color: var(--surface); border-color: transparent; }
+  .btn-primary:hover { opacity: 0.85; background: var(--text); }
+  .btn-success { background: var(--green-bg); color: var(--green-text); border-color: #a0d4b8; }
+  .btn-success:hover { background: #d4ede0; }
+  .btn-sm { padding: 6px 12px; font-size: 13px; }
+  .btn-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 1rem; }
+
+  .sel-msg { font-size: 12px; color: var(--text-muted); margin-top: 8px; }
+
+  /* Loading */
+  .loading-center { text-align: center; padding: 4rem 0; }
+  .spinner {
+    width: 36px; height: 36px; border: 3px solid var(--border);
+    border-top-color: var(--blue); border-radius: 50%;
+    animation: spin 0.7s linear infinite; margin: 0 auto 1.25rem;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .loading-title { font-size: 16px; font-weight: 500; margin-bottom: 6px; }
+  .loading-sub { font-size: 13px; color: var(--text-muted); }
+  .retry-badge {
+    display: inline-block; margin-top: 10px; padding: 4px 12px;
+    background: var(--amber-bg); color: var(--amber-text);
+    border-radius: 20px; font-size: 12px; font-weight: 500;
+  }
+
+  /* Result */
+  .result-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.25rem; flex-wrap: wrap; gap: 10px; }
+  .badge {
+    display: inline-flex; align-items: center; padding: 3px 10px;
+    border-radius: 20px; font-size: 12px; font-weight: 500;
+  }
+  .badge-blue { background: var(--blue-bg); color: var(--blue-text); }
+  .badge-green { background: var(--green-bg); color: var(--green-text); }
+  .badge-amber { background: var(--amber-bg); color: var(--amber-text); }
+  .badges-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+
+  .proj-name { font-size: 17px; font-weight: 600; margin-bottom: 8px; }
+  .proj-desc { font-size: 14px; color: var(--text-muted); line-height: 1.7; }
+
+  .outcome-row { display: flex; align-items: flex-start; gap: 10px; padding: 8px 0; border-bottom: 0.5px solid var(--border); }
+  .outcome-row:last-child { border-bottom: none; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; margin-top: 5px; }
+  .dot-green { background: var(--green); }
+  .dot-blue { background: var(--blue); }
+  .outcome-course { font-size: 12px; font-weight: 600; color: var(--text-muted); margin-bottom: 2px; }
+  .outcome-text { font-size: 13px; }
+
+  .progress-bar { height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; margin: 8px 0; }
+  .progress-fill { height: 100%; background: var(--blue); border-radius: 3px; transition: width 0.5s ease; }
+
+  .cov-row { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; }
+  .cov-label { font-size: 13px; color: var(--text-muted); }
+
+  .step-row { display: flex; gap: 10px; padding: 8px 0; border-bottom: 0.5px solid var(--border); }
+  .step-row:last-child { border-bottom: none; }
+  .step-num {
+    width: 24px; height: 24px; border-radius: 50%; background: var(--blue-bg);
+    color: var(--blue-text); display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 600; flex-shrink: 0;
+  }
+  .step-title { font-size: 13px; font-weight: 500; margin-bottom: 2px; }
+  .step-desc { font-size: 13px; color: var(--text-muted); }
+
+  /* Learning path */
+  .phase-card { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius); padding: 1.25rem; margin-bottom: 12px; }
+  .phase-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+  .phase-title { font-size: 14px; font-weight: 600; }
+
+  .task-item { display: flex; align-items: flex-start; gap: 10px; padding: 8px 0; border-bottom: 0.5px solid var(--border); }
+  .task-item:last-child { border-bottom: none; }
+  .task-check {
+    width: 20px; height: 20px; border-radius: 5px; border: 1.5px solid var(--border-strong);
+    flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+    cursor: pointer; transition: all 0.15s; margin-top: 1px;
+  }
+  .task-check:hover { border-color: var(--green); }
+  .task-check.checked { background: var(--green-bg); border-color: var(--green); }
+  .task-check.checked::after { content: '✓'; font-size: 12px; color: var(--green-text); font-weight: 700; }
+  .task-text { font-size: 14px; line-height: 1.5; cursor: pointer; }
+  .task-text.done { text-decoration: line-through; color: var(--text-muted); }
+
+  .progress-summary { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius); padding: 1.25rem; margin-bottom: 1rem; }
+  .pct-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+  .pct-label { font-size: 14px; font-weight: 500; }
+  .pct-value { font-size: 16px; font-weight: 700; color: var(--blue); }
+  .tasks-done-label { font-size: 12px; color: var(--text-muted); margin-top: 6px; }
+
+  .completion-card {
+    background: var(--green-bg); border: 0.5px solid #a0d4b8;
+    border-radius: var(--radius); padding: 2rem; text-align: center;
+    margin-top: 1rem; display: none;
+  }
+  .completion-emoji { font-size: 40px; margin-bottom: 12px; }
+  .completion-title { font-size: 18px; font-weight: 600; margin-bottom: 6px; }
+  .completion-sub { font-size: 14px; color: var(--text-muted); margin-bottom: 1.25rem; }
+
+  /* Done screen */
+  .done-center { text-align: center; padding: 4rem 0; }
+  .done-emoji { font-size: 48px; margin-bottom: 1rem; }
+  .done-title { font-size: 20px; font-weight: 600; margin-bottom: 8px; }
+  .done-sub { font-size: 14px; color: var(--text-muted); margin-bottom: 2rem; }
+
+  /* Lang screen */
+  .lang-screen { text-align: center; padding: 3rem 0 2rem; }
+  .lang-logo { font-size: 13px; color: var(--text-hint); margin-bottom: 1.5rem; }
+  .lang-title { font-size: 24px; font-weight: 600; margin-bottom: 6px; }
+  .lang-sub { font-size: 14px; color: var(--text-muted); margin-bottom: 2rem; }
+  .lang-buttons { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
+
+  .divider { border: none; border-top: 0.5px solid var(--border); margin: 1rem 0; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-title">Rotterdam TC Hackathon · 19-22 May 2026</div>
+  <div class="lang-toggle" id="lang-toggle" style="display:none">
+    <button class="lang-btn active" id="lb-en" onclick="setLang('en')">EN</button>
+    <button class="lang-btn" id="lb-tr" onclick="setLang('tr')">TR</button>
+  </div>
+</div>
+
+<div class="app">
+
+  <!-- SCREEN: Language Select -->
+  <div id="screen-lang" class="screen active">
+    <div class="lang-screen">
+      <div class="lang-logo">AI-Powered Cross-Disciplinary Project Generator</div>
+      <div class="lang-title">Choose your language</div>
+      <div class="lang-sub">Dilini seç</div>
+      <div class="lang-buttons">
+        <button class="btn btn-primary" style="padding:12px 28px;font-size:15px" onclick="setLang('en')">🇬🇧 English</button>
+        <button class="btn" style="padding:12px 28px;font-size:15px" onclick="setLang('tr')">🇹🇷 Türkçe</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- SCREEN: Input -->
+  <div id="screen-input" class="screen">
+    <div class="page-title" id="lbl-title">Choose Your Courses</div>
+    <div class="page-sub" id="lbl-subtitle">Select 1–5 subjects to generate a cross-disciplinary project</div>
+
+    <div class="card">
+      <div class="section-label" id="lbl-grade-label">Grade Level</div>
+      <select id="sel-grade">
+        <option value="6">6th / 6. Sınıf</option>
+        <option value="7">7th / 7. Sınıf</option>
+        <option value="8">8th / 8. Sınıf</option>
+        <option value="9" selected>9th / 9. Sınıf</option>
+        <option value="10">10th / 10. Sınıf</option>
+        <option value="11">11th / 11. Sınıf</option>
+        <option value="12">12th / 12. Sınıf</option>
+      </select>
+    </div>
+
+    <div class="card">
+      <div class="section-label" id="lbl-courses-label">Select Courses (1–5)</div>
+      <div class="tag-grid" id="course-tags"></div>
+      <div class="custom-row">
+        <input type="text" id="custom-course" placeholder="Add custom course..." />
+        <button class="btn btn-sm" onclick="addCustomCourse()">+ Add</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="section-label" id="lbl-interests-label">Student Interests (optional)</div>
+      <input type="text" id="inp-interests" placeholder="e.g. nature, gaming, music, robotics..." />
+    </div>
+
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="generateProject()" id="btn-generate">
+        ✦ <span id="lbl-gen-btn">Generate Project</span>
+      </button>
+    </div>
+    <div class="sel-msg" id="sel-msg"></div>
+  </div>
+
+  <!-- SCREEN: Loading -->
+  <div id="screen-loading" class="screen">
+    <div class="loading-center">
+      <div class="spinner"></div>
+      <div class="loading-title" id="lbl-loading">Generating your project...</div>
+      <div class="loading-sub" id="lbl-loading-sub">Asking the AI, please wait...</div>
+      <div id="retry-badge" style="display:none" class="retry-badge"></div>
+    </div>
+  </div>
+
+  <!-- SCREEN: Result -->
+  <div id="screen-result" class="screen">
+    <div class="result-header">
+      <div>
+        <div class="page-title" id="lbl-res-title">Your Project</div>
+        <div class="badges-row" id="res-course-badges"></div>
+      </div>
+      <button class="btn btn-sm" onclick="showScreen('screen-input')">← <span id="lbl-back">Back</span></button>
+    </div>
+
+    <div class="card">
+      <div class="proj-name" id="proj-name"></div>
+      <div class="proj-desc" id="proj-desc"></div>
+    </div>
+
+    <div class="card">
+      <div class="section-label" id="lbl-outcomes-head">Learning Outcomes Covered</div>
+      <div id="proj-outcomes"></div>
+      <hr class="divider">
+      <div class="cov-row">
+        <div class="cov-label" id="cov-label">Coverage: 0%</div>
+        <div class="badge" id="cov-badge"></div>
+      </div>
+      <div class="progress-bar"><div class="progress-fill" id="cov-fill" style="width:0%"></div></div>
+    </div>
+
+    <div class="card">
+      <div class="section-label" id="lbl-steps-head">Project Steps</div>
+      <div id="proj-steps"></div>
+    </div>
+
+    <div class="card">
+      <div class="section-label" id="lbl-ask-path">Want a learning path for this project?</div>
+      <div class="btn-row" style="margin-top:4px">
+        <button class="btn btn-success" onclick="buildLearningPath()">
+          ↪ <span id="lbl-path-btn">Yes, create my learning path</span>
+        </button>
+        <button class="btn" onclick="regenProject()">↺ <span id="lbl-regen-btn">Regenerate</span></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- SCREEN: Learning Path -->
+  <div id="screen-path" class="screen">
+    <div class="result-header">
+      <div class="page-title" id="lbl-path-title">Your Learning Path</div>
+      <button class="btn btn-sm" onclick="showScreen('screen-result')">← <span id="lbl-back2">Back</span></button>
+    </div>
+
+    <div class="progress-summary">
+      <div class="pct-row">
+        <div class="pct-label" id="lbl-progress-head">Overall Progress</div>
+        <div class="pct-value" id="pct-display">0%</div>
+      </div>
+      <div class="progress-bar" style="height:8px">
+        <div class="progress-fill" id="path-fill" style="width:0%"></div>
+      </div>
+      <div class="tasks-done-label" id="tasks-done-lbl">0 of 0 tasks completed</div>
+    </div>
+
+    <div id="path-phases"></div>
+
+    <div class="completion-card" id="completion-card">
+      <div class="completion-emoji">🎉</div>
+      <div class="completion-title" id="lbl-complete-head">Project Complete!</div>
+      <div class="completion-sub" id="lbl-complete-sub">You finished all tasks. Ready for the next challenge?</div>
+      <div class="btn-row" style="justify-content:center">
+        <button class="btn btn-primary" onclick="startNew()">✦ <span id="lbl-learn-more">Learn something new</span></button>
+        <button class="btn" onclick="quitApp()">✕ <span id="lbl-quit">I'm done for now</span></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- SCREEN: Done -->
+  <div id="screen-done" class="screen">
+    <div class="done-center">
+      <div class="done-emoji">👋</div>
+      <div class="done-title" id="lbl-done-title">Great work!</div>
+      <div class="done-sub" id="lbl-done-sub">Come back whenever you want to explore a new project.</div>
+      <button class="btn btn-primary" onclick="startNew()">↺ <span id="lbl-restart">Start over</span></button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const COURSES = [
+  'Mathematics','Physics','Chemistry','Biology','History','Geography',
+  'Literature','Visual Arts','Music','Physical Education','Computer Science',
+  'Economics','Philosophy','Psychology','Environmental Science'
+];
+const COURSE_TR = {
+  'Mathematics':'Matematik','Physics':'Fizik','Chemistry':'Kimya','Biology':'Biyoloji',
+  'History':'Tarih','Geography':'Coğrafya','Literature':'Edebiyat','Visual Arts':'Görsel Sanatlar',
+  'Music':'Müzik','Physical Education':'Beden Eğitimi','Computer Science':'Bilgisayar Bilimi',
+  'Economics':'Ekonomi','Philosophy':'Felsefe','Psychology':'Psikoloji',
+  'Environmental Science':'Çevre Bilimi'
+};
+
+const T = {
+  en: {
+    title: 'Choose Your Courses',
+    subtitle: 'Select 1–5 subjects to generate a cross-disciplinary project',
+    gradeLabel: 'Grade Level', coursesLabel: 'Select Courses (1–5)',
+    interestsLabel: 'Student Interests (optional)',
+    genBtn: 'Generate Project', loading: 'Generating your project...',
+    loadingSub: 'Asking the AI, please wait...',
+    retryMsg: 'Attempt {n} of 3 — improving project quality...',
+    resTitle: 'Your Project', back: 'Back', back2: 'Back',
+    outcomesHead: 'Learning Outcomes Covered',
+    stepsHead: 'Project Steps',
+    askPath: 'Want a learning path for this project?',
+    pathBtn: 'Yes, create my learning path',
+    regenBtn: 'Regenerate',
+    pathTitle: 'Your Learning Path',
+    progressHead: 'Overall Progress',
+    tasksDone: '{done} of {total} tasks completed',
+    completeHead: 'Project Complete!',
+    completeSub: 'You finished all tasks. Ready for the next challenge?',
+    learnMore: 'Learn something new',
+    quit: "I'm done for now",
+    doneTitle: 'Great work!',
+    doneSub: 'Come back whenever you want to explore a new project.',
+    restart: 'Start over',
+    phase: 'Phase',
+    selMsg: 'Select at least {n} more course(s)',
+    selOk: 'Ready! Hit generate.',
+    covGood: '✓ All outcomes covered',
+    covLow: '⚠ Some outcomes missing',
+    coverage: 'Curriculum coverage',
+    addBtn: '+ Add',
+    customPlaceholder: 'Add custom course...',
+    interestsPlaceholder: 'e.g. nature, gaming, music, robotics...'
+  },
+  tr: {
+    title: 'Derslerini Seç',
+    subtitle: '1–5 ders seçerek disiplinler arası proje oluştur',
+    gradeLabel: 'Sınıf Seviyesi', coursesLabel: 'Ders Seç (1–5)',
+    interestsLabel: 'Öğrenci İlgi Alanları (isteğe bağlı)',
+    genBtn: 'Proje Oluştur', loading: 'Proje oluşturuluyor...',
+    loadingSub: "AI'a soruyorum, lütfen bekle...",
+    retryMsg: '{n}/3. deneme — proje iyileştiriliyor...',
+    resTitle: 'Projen', back: 'Geri', back2: 'Geri',
+    outcomesHead: 'Kapsanan Öğrenme Çıktıları',
+    stepsHead: 'Proje Adımları',
+    askPath: 'Bu proje için öğrenme yolu oluşturayım mı?',
+    pathBtn: 'Evet, öğrenme yolumu oluştur',
+    regenBtn: 'Yeniden Oluştur',
+    pathTitle: 'Öğrenme Yolun',
+    progressHead: 'Genel İlerleme',
+    tasksDone: '{done}/{total} görev tamamlandı',
+    completeHead: 'Proje Tamamlandı!',
+    completeSub: 'Tüm görevleri bitirdin. Bir sonraki meydan okumaya hazır mısın?',
+    learnMore: 'Yeni bir şey öğren',
+    quit: 'Şimdilik bitti',
+    doneTitle: 'Harika iş!',
+    doneSub: 'Yeni bir proje keşfetmek istediğinde geri dön.',
+    restart: 'Baştan başla',
+    phase: 'Aşama',
+    selMsg: 'En az {n} ders daha seç',
+    selOk: 'Hazır! Oluştur butonuna bas.',
+    covGood: '✓ Tüm çıktılar kapsandı',
+    covLow: '⚠ Bazı çıktılar eksik',
+    coverage: 'Müfredat kapsamı',
+    addBtn: '+ Ekle',
+    customPlaceholder: 'Özel ders ekle...',
+    interestsPlaceholder: 'örn. doğa, oyun, müzik, robotik...'
+  }
+};
+
+let lang = 'en';
+let selectedCourses = [];
+let currentProject = null;
+let taskStates = {};
+
+function t(key, vars = {}) {
+  let s = T[lang][key] || T['en'][key] || key;
+  Object.entries(vars).forEach(([k, v]) => { s = s.replace(`{${k}}`, v); });
+  return s;
+}
+
+function setLang(l) {
+  lang = l;
+  document.getElementById('lang-toggle').style.display = 'flex';
+  document.getElementById('lb-en').className = 'lang-btn' + (l === 'en' ? ' active' : '');
+  document.getElementById('lb-tr').className = 'lang-btn' + (l === 'tr' ? ' active' : '');
+  applyLabels();
+  renderCourses();
+  showScreen('screen-input');
+}
+
+function applyLabels() {
+  const map = {
+    'lbl-title': 'title', 'lbl-subtitle': 'subtitle',
+    'lbl-grade-label': 'gradeLabel', 'lbl-courses-label': 'coursesLabel',
+    'lbl-interests-label': 'interestsLabel', 'lbl-gen-btn': 'genBtn',
+    'lbl-loading': 'loading', 'lbl-loading-sub': 'loadingSub',
+    'lbl-res-title': 'resTitle', 'lbl-back': 'back', 'lbl-back2': 'back2',
+    'lbl-outcomes-head': 'outcomesHead', 'lbl-steps-head': 'stepsHead',
+    'lbl-ask-path': 'askPath', 'lbl-path-btn': 'pathBtn', 'lbl-regen-btn': 'regenBtn',
+    'lbl-path-title': 'pathTitle', 'lbl-progress-head': 'progressHead',
+    'lbl-complete-head': 'completeHead', 'lbl-complete-sub': 'completeSub',
+    'lbl-learn-more': 'learnMore', 'lbl-quit': 'quit',
+    'lbl-done-title': 'doneTitle', 'lbl-done-sub': 'doneSub', 'lbl-restart': 'restart'
+  };
+  Object.entries(map).forEach(([id, key]) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = t(key);
+  });
+  const addBtn = document.querySelector('.custom-row .btn-sm');
+  if (addBtn) addBtn.textContent = t('addBtn');
+  const customInp = document.getElementById('custom-course');
+  if (customInp) customInp.placeholder = t('customPlaceholder');
+  const intInp = document.getElementById('inp-interests');
+  if (intInp) intInp.placeholder = t('interestsPlaceholder');
+}
+
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  window.scrollTo(0, 0);
+}
+
+function renderCourses() {
+  const grid = document.getElementById('course-tags');
+  grid.innerHTML = '';
+  COURSES.forEach(c => {
+    const label = lang === 'tr' ? (COURSE_TR[c] || c) : c;
+    const div = document.createElement('div');
+    div.className = 'tag' + (selectedCourses.includes(c) ? ' selected' : '');
+    div.textContent = label;
+    div.dataset.course = c;
+    div.onclick = () => toggleCourse(c, div);
+    grid.appendChild(div);
+  });
+  updateSelMsg();
+}
+
+function toggleCourse(c, el) {
+  if (selectedCourses.includes(c)) {
+    selectedCourses = selectedCourses.filter(x => x !== c);
+    el.classList.remove('selected');
+  } else {
+    if (selectedCourses.length >= 5) return;
+    selectedCourses.push(c);
+    el.classList.add('selected');
+  }
+  updateSelMsg();
+}
+
+function addCustomCourse() {
+  const inp = document.getElementById('custom-course');
+  const val = inp.value.trim();
+  if (!val || selectedCourses.length >= 5) return;
+  if (selectedCourses.includes(val)) { inp.value = ''; return; }
+  selectedCourses.push(val);
+  inp.value = '';
+  const tag = document.createElement('div');
+  tag.className = 'tag selected';
+  tag.textContent = val;
+  tag.onclick = () => {
+    selectedCourses = selectedCourses.filter(x => x !== val);
+    tag.remove();
+    updateSelMsg();
+  };
+  document.getElementById('course-tags').appendChild(tag);
+  updateSelMsg();
+}
+
+function updateSelMsg() {
+  const n = selectedCourses.length;
+  const msg = document.getElementById('sel-msg');
+  if (n === 0) msg.textContent = t('selMsg', { n: 1 });
+  else if (n < 1) msg.textContent = t('selMsg', { n: 1 - n });
+  else msg.textContent = t('selOk');
+}
+
+function buildPrompt(courses, grade, interests, prevFeedback = '') {
+  const langInstr = lang === 'tr' ? 'Respond in Turkish.' : 'Respond in English.';
+  const interestPart = interests ? `Student interests: ${interests}.` : '';
+  const feedbackPart = prevFeedback ? `Previous attempt was rejected because: ${prevFeedback}. Fix this.` : '';
+  return `You are an educational project generator for high school curriculum.
+${langInstr}
+Grade: ${grade}th grade. Courses: ${courses.join(', ')}.
+${interestPart}
+${feedbackPart}
+Generate a cross-disciplinary project covering ALL selected courses.
+Respond ONLY with valid JSON, no markdown, no extra text:
+{
+  "project_name": "creative short title",
+  "description": "2-3 sentence project description",
+  "courses_covered": ["course1","course2"],
+  "learning_outcomes": [
+    {"course":"CourseName","outcome":"specific outcome","keywords":["kw1","kw2","kw3"]}
+  ],
+  "steps": [
+    {"title":"Step title","description":"what student does"}
+  ],
+  "learning_path": [
+    {"phase":"Phase name","duration":"X days","tasks":["task1","task2","task3"]}
+  ]
+}
+Rules: every course must have ≥1 outcome; 4-6 steps; 3-4 phases with 3-5 tasks each.`;
+}
+
+function checkCoverage(project, courses) {
+  const text = JSON.stringify(project).toLowerCase();
+  const covered = courses.filter(c => {
+    const kws = (project.learning_outcomes || [])
+      .filter(o => o.course.toLowerCase().includes(c.toLowerCase().slice(0, 4)))
+      .flatMap(o => o.keywords || []);
+    return kws.length > 0 && kws.some(k => text.includes(k.toLowerCase()));
+  });
+  return { pct: Math.round((covered.length / courses.length) * 100), covered };
+}
+
+async function callAPI(prompt) {
+  const res = await fetch('/api/generate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ prompt })
+  });
+  if (!res.ok) throw new Error('Server error ' + res.status);
+  const data = await res.json();
+  if (data.error) throw new Error(data.error);
+  return data.text;
+}
+
+async function generateProject() {
+  if (selectedCourses.length < 1) return;
+  const grade = document.getElementById('sel-grade').value;
+  const interests = document.getElementById('inp-interests').value.trim();
+
+  showScreen('screen-loading');
+  const retryBadge = document.getElementById('retry-badge');
+  retryBadge.style.display = 'none';
+
+  let attempt = 0;
+  let project = null;
+  let coverage = 0;
+  let lastFeedback = '';
+
+  while (attempt < 3) {
+    attempt++;
+    if (attempt > 1) {
+      retryBadge.style.display = 'inline-block';
+      retryBadge.textContent = t('retryMsg', { n: attempt });
+    }
+    try {
+      const prompt = buildPrompt(selectedCourses, grade, interests, lastFeedback);
+      const raw = await callAPI(prompt);
+      const cleaned = raw.replace(/```json|```/g, '').trim();
+      const parsed = JSON.parse(cleaned);
+      const cov = checkCoverage(parsed, selectedCourses);
+      coverage = cov.pct;
+      project = parsed;
+      if (coverage >= 50) break;
+      lastFeedback = `Coverage was only ${coverage}%. Missing: ${
+        selectedCourses.filter(c => !cov.covered.includes(c)).join(', ')
+      }`;
+    } catch (e) {
+      lastFeedback = 'JSON was invalid. Return ONLY valid JSON, nothing else.';
+    }
+  }
+
+  if (!project) { showScreen('screen-input'); return; }
+
+  currentProject = project;
+  taskStates = {};
+  renderResult(project, coverage);
+  showScreen('screen-result');
+}
+
+function renderResult(p, cov) {
+  document.getElementById('proj-name').textContent = p.project_name || '';
+  document.getElementById('proj-desc').textContent = p.description || '';
+
+  const badgesRow = document.getElementById('res-course-badges');
+  badgesRow.innerHTML = '';
+  (p.courses_covered || selectedCourses).forEach(c => {
+    const b = document.createElement('span');
+    b.className = 'badge badge-blue';
+    b.textContent = c;
+    badgesRow.appendChild(b);
+  });
+
+  const outDiv = document.getElementById('proj-outcomes');
+  outDiv.innerHTML = '';
+  (p.learning_outcomes || []).forEach((o, i) => {
+    const row = document.createElement('div');
+    row.className = 'outcome-row';
+    row.innerHTML = `<div class="dot ${i % 2 === 0 ? 'dot-green' : 'dot-blue'}"></div>
+      <div><div class="outcome-course">${o.course}</div>
+      <div class="outcome-text">${o.outcome}</div></div>`;
+    outDiv.appendChild(row);
+  });
+
+  document.getElementById('cov-label').textContent = t('coverage') + ': ' + cov + '%';
+  document.getElementById('cov-fill').style.width = cov + '%';
+  const covBadge = document.getElementById('cov-badge');
+  if (cov >= 50) { covBadge.className = 'badge badge-green'; covBadge.textContent = t('covGood'); }
+  else { covBadge.className = 'badge badge-amber'; covBadge.textContent = t('covLow'); }
+
+  const stepsDiv = document.getElementById('proj-steps');
+  stepsDiv.innerHTML = '';
+  (p.steps || []).forEach((s, i) => {
+    const row = document.createElement('div');
+    row.className = 'step-row';
+    row.innerHTML = `<div class="step-num">${i + 1}</div>
+      <div><div class="step-title">${s.title}</div>
+      <div class="step-desc">${s.description}</div></div>`;
+    stepsDiv.appendChild(row);
+  });
+}
+
+function buildLearningPath() {
+  if (!currentProject || !currentProject.learning_path) return;
+  const phasesDiv = document.getElementById('path-phases');
+  phasesDiv.innerHTML = '';
+  let totalTasks = 0;
+
+  currentProject.learning_path.forEach((phase, pi) => {
+    const tasks = phase.tasks || [];
+    totalTasks += tasks.length;
+    tasks.forEach((_, ti) => { taskStates[`${pi}-${ti}`] = false; });
+
+    const card = document.createElement('div');
+    card.className = 'phase-card';
+    const taskHtml = tasks.map((task, ti) => {
+      const key = `${pi}-${ti}`;
+      return `<div class="task-item">
+        <div class="task-check" id="chk-${key}" onclick="toggleTask('${key}')"></div>
+        <div class="task-text" id="txt-${key}" onclick="toggleTask('${key}')">${task}</div>
+      </div>`;
+    }).join('');
+    card.innerHTML = `<div class="phase-header">
+        <div class="phase-title">${t('phase')} ${pi + 1}: ${phase.phase}</div>
+        <span class="badge badge-blue" style="font-size:11px">${phase.duration || ''}</span>
+      </div>${taskHtml}`;
+    phasesDiv.appendChild(card);
+  });
+
+  document.getElementById('tasks-done-lbl').textContent = t('tasksDone', { done: 0, total: totalTasks });
+  document.getElementById('pct-display').textContent = '0%';
+  document.getElementById('path-fill').style.width = '0%';
+  document.getElementById('completion-card').style.display = 'none';
+  showScreen('screen-path');
+}
+
+function toggleTask(key) {
+  taskStates[key] = !taskStates[key];
+  const chk = document.getElementById('chk-' + key);
+  const txt = document.getElementById('txt-' + key);
+  if (taskStates[key]) { chk.classList.add('checked'); txt.classList.add('done'); }
+  else { chk.classList.remove('checked'); txt.classList.remove('done'); }
+  updateProgress();
+}
+
+function updateProgress() {
+  const keys = Object.keys(taskStates);
+  const total = keys.length;
+  const done = Object.values(taskStates).filter(Boolean).length;
+  const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+  document.getElementById('pct-display').textContent = pct + '%';
+  document.getElementById('path-fill').style.width = pct + '%';
+  document.getElementById('tasks-done-lbl').textContent = t('tasksDone', { done, total });
+  if (pct >= 100 && total > 0) {
+    const card = document.getElementById('completion-card');
+    card.style.display = 'block';
+    card.scrollIntoView({ behavior: 'smooth' });
+  }
+}
+
+function regenProject() { generateProject(); }
+
+function startNew() {
+  selectedCourses = []; taskStates = {}; currentProject = null;
+  renderCourses();
+  document.getElementById('inp-interests').value = '';
+  showScreen('screen-input');
+}
+
+function quitApp() { showScreen('screen-done'); }
+
+renderCourses();
+updateSelMsg();
+</script>
+</body>
+</html>
